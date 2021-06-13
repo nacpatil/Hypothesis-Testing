@@ -140,7 +140,6 @@ def get_bin_Data(bed, peak, pind, pst, pen ):
 
 
 #===MAIN===============================================================================================
-#===MAIN===============================================================================================
 sample = bedgraph(sample_file)
 noise = bedgraph(noise_file)
 peak = peak_class(peak_file)
