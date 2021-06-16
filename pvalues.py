@@ -6,6 +6,7 @@ from scipy.stats import ks_2samp
 import matplotlib.pyplot as plt
 import matplotlib.pyplot as splt
 import seaborn as sb
+from scipy import stats
   
 #=====INPUTS===========================================================================================
 peak_file="peaks/sample_peak.bed"
@@ -23,9 +24,18 @@ class bedgraph:
         data=read_pdata(filename, 4, True)
         [self.chrs, self.st, self.en, self.enr]= data
         [self.chr_list, self.start_ind, self.end_ind]=chr_starts(self.chrs)
-        
         self.bin_width = data[2][0]-data[1][0]
         print(self.bin_width)
+        self.chr_split_st=[[]]*25
+        self.chr_split_enr=[[]]*25
+        self.split_chr_data()
+        
+    def split_chr_data(self):
+        ct=-1
+        for chh in self.chr_list:
+            ct+=1
+            self.chr_split_st[chh]  = self.st[self.start_ind[ct] : self.end_ind[ct]] 
+            self.chr_split_enr[chh] =self.enr[self.start_ind[ct] : self.end_ind[ct] ]
 
         
 class peak_class:
@@ -34,12 +44,12 @@ class peak_class:
         [self.chrs, self.st, self.en, self.width, self.log]= data
         self.num_peaks=len(self.chrs)
         
-    def write_pvalues(self,out_file,stat,pvalue):
+    def write_pvalues(self,out_file,stat,pvalue, s_ratio):
         f=open(out_file,'w')
-        f.write("#chr start end width log ks-statistic pvalue\n")
+        f.write("#chr start end width log ks-statistic pvalue mean_ratio\n")
         for i in range(0,self.num_peaks):
             out_str =   str(self.chrs[i]) + " " +str(self.st[i])+ " "+str(self.en[i])+ " " + \
-            str(self.width[i])+" "+str(self.log[i])+" "+str(stat[i]) + " "+str(pvalue[i]) +"\n"  
+            str(self.width[i])+" "+str(self.log[i])+" "+str(stat[i]) + " "+str(pvalue[i]) +" "+str(s_ratio[i])+"\n"  
             f.write(out_str)
         f.close()
         
@@ -64,10 +74,13 @@ chrdict = {
 	"chr17": "17",
 	"chr18": "18",
 	"chr19": "19",
-	"chrX": "20",
-	"chrY": "21",
-	"chrM": "22"
+    "chr20": "20",
+    "chr21": "21",
+	"chrX": "22",
+	"chrY": "23",
+	"chrM": "24"
 }
+
 
 
 
@@ -129,10 +142,16 @@ def get_bin_Data(bed, peak, pind, pst, pen ):
         
     sv=bed.start_ind[tmp_ind]
     ev=bed.end_ind[tmp_ind]
-    temp_numpy_st=bed.st[sv:ev]
-    temp_numpy_enr = bed.enr[sv:ev]
-    ps1=position = np.argmax(temp_numpy_st[sv:ev] >= pst)
-    ps2=position = np.argmax(temp_numpy_st[sv:ev] >= pen)
+    #emp_numpy_st=bed.st[sv:ev]
+    #temp_numpy_enr = bed.enr[sv:ev]
+    temp_numpy_st=bed.chr_split_st[pind] 
+    temp_numpy_enr=bed.chr_split_enr[pind] 
+    
+    #ps1 = np.argmax(temp_numpy_st >= pst)
+    #ps2 = np.argmax(temp_numpy_st >= pen)
+    ps1=np.searchsorted(temp_numpy_st, pst)
+    ps2=np.searchsorted(temp_numpy_st, pen)
+
     num_bins=round((pen-pst)/bed.bin_width)+1
     sample_vals=np.zeros([num_bins,1],dtype=int)
     sample_vals[0:ps2-ps1,0]=temp_numpy_enr[ps1:ps2]
@@ -140,41 +159,48 @@ def get_bin_Data(bed, peak, pind, pst, pen ):
 
 
 #===MAIN===============================================================================================
+#===MAIN===============================================================================================
 sample = bedgraph(sample_file)
 noise = bedgraph(noise_file)
 peak = peak_class(peak_file)
 print(peak.num_peaks)
 stat_var=[]
 pvalue=[]
+s_ratio=[]
 
 for pi in range(0,peak.num_peaks):
     pind=peak.chrs[pi]
     pst=peak.st[pi]
     pen=peak.en[pi]
-    print('peak',pind,pst,pen)
+    #print('peak',pind,pst,pen)
     
     sample_vals = get_bin_Data(sample, peak, pind, pst, pen )
     noise_vals = get_bin_Data(noise, peak, pind, pst, pen )
-    '''
-    a=range(0,len(sample_vals))
-    b=range(0,len(noise_vals))
-
-    plt.plot(a,sample_vals)
-    plt.plot(b,noise_vals)
-    plt.show()
-
-    sb.distplot(sample_vals, hist=False, label = "x")
-    sb.distplot(noise_vals, hist=False, label = "z")
-    plt.legend()
-    splt.show()
-    '''
-    relt=ks_2samp(sample_vals[:,0], noise_vals[:,0])
-    stat_var.append(relt.statistic)
-    pvalue.append(relt.pvalue)
     
-    print(relt.statistic,relt.pvalue)
+    if pi%1==0:
+        a=range(0,len(sample_vals))
+        if len(noise_vals)>0:
+            b=range(0,len(noise_vals))
+        else:
+            b=0*a
+        print("lengths",len(sample_vals),len(noise_vals))
+        
+        #print(sample_vals,noise_vals)
+
+        sb.distplot(sample_vals, hist=False, label = "x")
+        sb.distplot(noise_vals, hist=False, label = "z")
+        plt.legend()
+        splt.show()
+    ratio_n=np.sum(sample_vals)/np.sum(noise_vals)
+    #relt=ks_2samp(sample_vals[:,0], noise_vals[:,0])
+    t_test=stats.ttest_ind(sample_vals[:,0], noise_vals[:,0])
+    stat_var.append(t_test.statistic)
+    pvalue.append(t_test.pvalue)
+    s_ratio.append(ratio_n)
     
-peak.write_pvalues(output_file,stat_var,pvalue)
+    #print(relt.statistic,relt.pvalue)
+    
+peak.write_pvalues(output_file,stat_var,pvalue,s_ratio)
     
     
     
