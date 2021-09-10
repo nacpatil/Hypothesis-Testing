@@ -1,4 +1,3 @@
-
 import numpy as np
 import os
 import pandas as pd
@@ -7,15 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.pyplot as splt
 import seaborn as sb
 from scipy import stats
-  
-#=====INPUTS===========================================================================================
-peak_file="peaks/sample_peak.bed"
-sample_file="binned_data/sample_.bedgraph"
-noise_file="binned_data/noise_.bedgraph"
-output_file = "pvalues_peak_file.bed"
-
-
-
+import matplotlib.pyplot as plt
+from scipy.fft import fft, fftfreq
 #======Supporting Functions============================================================================
 
 class bedgraph:
@@ -37,6 +29,35 @@ class bedgraph:
             self.chr_split_st[chh]  = self.st[self.start_ind[ct] : self.end_ind[ct]] 
             self.chr_split_enr[chh] =self.enr[self.start_ind[ct] : self.end_ind[ct] ]
 
+
+    def get_full_baspair(self):
+        #nm=self.start_ind[1]
+        #x=range(0,CTCFd.st[0:nm-1])
+        full_list=[]
+        for chrn in range(0,len(self.chr_list)):
+            print('chrn',chrn,self.chr_list[chrn])
+            stt=CTCFd.start_ind[chrn]
+            enn=CTCFd.end_ind[chrn]-1
+
+            x=[0]*(CTCFd.st[enn]+4)
+            print(self.start_ind)
+            print(self.chr_list)
+            old=-1
+            #acc=[]
+            print(self.end_ind)
+            for i in range(stt,enn+1):
+                x[self.st[i]]=int(self.enr[i])
+                if old>self.st[i]:
+                    exit('Error: Issue with indexes')
+                old=self.st[i]
+                #cc.append(self.st[i])
+
+            #if len(acc)<100:    
+            #    print(acc)
+            full_list.extend(x)
+        return full_list
+
+
         
 class peak_class:
     def __init__(self,filename ):
@@ -46,7 +67,7 @@ class peak_class:
         
     def write_pvalues(self,out_file,stat,pvalue, s_ratio):
         f=open(out_file,'w')
-        f.write("#chr start end width log ks-statistic pvalue mean_ratio\n")
+        f.write("#chr start end width log ks-statistic pvalue\n")
         for i in range(0,self.num_peaks):
             out_str =   str(self.chrs[i]) + " " +str(self.st[i])+ " "+str(self.en[i])+ " " + \
             str(self.width[i])+" "+str(self.log[i])+" "+str(stat[i]) + " "+str(pvalue[i]) +" "+str(s_ratio[i])+"\n"  
@@ -158,60 +179,88 @@ def get_bin_Data(bed, peak, pind, pst, pen ):
     return sample_vals
 
 
+
+#=====INPUTS===========================================================================================
+CTCF = "bin_new/JT_MmSc_WTCTCF912_.bedgraph"
+CTCF = "bin_new/trial.bedgraph"
+
+K27 = "bin_new/JT_MmSc_WTK27m912_.bedgraph"
+K4 = "bin_new/JT_MmSc_WTK4m912_.bedgraph"
+K9 = "bin_new/JT_MmSc_WTK9m912_.bedgraph"
+
+
 #===MAIN===============================================================================================
 #===MAIN===============================================================================================
-sample = bedgraph(sample_file)
-noise = bedgraph(noise_file)
-peak = peak_class(peak_file)
-print(peak.num_peaks)
-stat_var=[]
-pvalue=[]
-s_ratio=[]
+CTCFd = bedgraph(CTCF)
+#K27d = bedgraph(K27)
+#K4d = bedgraph(K4)
+#K9d = bedgraph(K9)
 
-for pi in range(0,peak.num_peaks):
-    pind=peak.chrs[pi]
-    pst=peak.st[pi]
-    pen=peak.en[pi]
-    #print('peak',pind,pst,pen)
-    
-    sample_vals = get_bin_Data(sample, peak, pind, pst, pen )
-    noise_vals = get_bin_Data(noise, peak, pind, pst, pen )
-    
-    if pi%1==10000:
-        a=range(0,len(sample_vals))
-        if len(noise_vals)>0:
-            b=range(0,len(noise_vals))
-        else:
-            b=0*a
-        print("lengths",len(sample_vals),len(noise_vals))
-        
-        #print(sample_vals,noise_vals)
+v=False
 
-        sb.distplot(sample_vals, hist=False, label = "x")
-        sb.distplot(noise_vals, hist=False, label = "z")
-        plt.legend()
-        splt.show()
-    ratio_n=np.sum(sample_vals)/np.sum(noise_vals)
-    #relt=ks_2samp(sample_vals[:,0], noise_vals[:,0])
-    t_test=stats.ttest_ind(sample_vals[:,0], noise_vals[:,0])
-    stat_var.append(t_test.statistic)
-    pvalue.append(t_test.pvalue)
-    s_ratio.append(ratio_n)
-    
-    #print(relt.statistic,relt.pvalue)
-    
-peak.write_pvalues(output_file,stat_var,pvalue,s_ratio)
-    
-    
-    
-    
-    
-    
+'''
+sb.distplot(CTCFd.enr,fill=False, bins=5500, hist=True, label = "CTCF",kde=v)
+sb.distplot(K27d.enr, bins=5500,fill=False, hist=True, label = "K27",kde=v)
+sb.distplot(K4d.enr, bins=5500,fill=False, hist=True, label = "K4",kde=v)
+sb.distplot(K9d.enr,  bins=5500,fill=False, hist=True, label = "K9",kde=v)
+'''
+
+'''
+sb.histplot(data=CTCFd.enr,  log_scale=True, element="step", fill=False,color='red')
+sb.histplot(data=K27d.enr, bins=5500, log_scale=True, element="step", fill=False,color="green")
+sb.histplot(data=K9d.enr,  log_scale=True, element="step", fill=False,color="blue")
+sb.histplot(data=K4d.enr, bins=5500, log_scale=True, element="step", fill=False,color="yellow")
+
+plt.show()
+
+'''
+
+'''
+nm=len(CTCFd.enr)
+x=range(0,nm)
+plt.plot(x,CTCFd.enr)
+plt.show()
+exit()
+'''
+
+full_list=CTCFd.get_full_baspair()
+exit()
+print(CTCFd.start_ind)
+nm=CTCFd.start_ind[1]
+print('nm',nm)
+x=range(0,max(CTCFd.st[0:nm])+5)
+y=np.zeros([max(CTCFd.st[0:nm])+5,1],dtype=int)
+for i in range(0,nm-1):
+    print('i',i)
+    if True:#CTCFd.st[i]<nm:
+        print(i)
+        y[CTCFd.st[i]]=float(CTCFd.enr[i])
+    else:
+        break
+print('ctcf',(CTCFd.start_ind))
+#plt.plot(x,y)
+#plt.show()
+#splt.show()
+
+std=np.std(y)
+print('std',std)
+mn=np.mean(y)
+print('mean',mn)
 
 
 
-
-
-
+N = int(nm/100)
+T = 1.0 
+#x = np.linspace(0.0, N*T, N, endpoint=False)
+#y = np.sin(50.0 * 2.0*np.pi*x) + 0*0.5*np.sin(80.0 * 2.0*np.pi*x)
+for i in range(0,len(y)):
+    y[i]=i
+yf = fft(y)
+xf = fftfreq(N, T)[:N//2]
+#>>> import matplotlib.pyplot as plt
+print(yf)
+plt.plot(xf, 2.0/N * np.abs(yf[0:N//2]))
+plt.grid()
+plt.show()
 
 
